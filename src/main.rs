@@ -66,15 +66,11 @@ where
 
         println!("2{:?}", file_path);
 
-        // if !file_path.starts_with(&self.dir) {
-        //     return Ok(Response::new(StatusCode::Forbidden));
-        // }
-
         if !file_path.exists().await {
             return Ok(Response::new(StatusCode::NotFound));
         }
-        // 判断请求地址属于普通文件还是文件夹
 
+        // 判断请求地址属于普通文件还是文件夹
         if file_path.is_file().await {
             let body = Body::from_file(&file_path).await?;
             let mut res = Response::new(StatusCode::Ok);
@@ -84,7 +80,7 @@ where
             let mut html = String::from("");
             html.push_str("<ul>");
             let mut entries = (file_path.read_dir().await?);
-            let root = file_path.as_path().to_str().unwrap_or_default();
+            let root = file_path.as_path().parent().unwrap().to_str().unwrap_or_default();
 
             // OMG !
             // Some 和 Ok 可以嵌套
@@ -97,11 +93,12 @@ where
                 let filename = filename.to_string_lossy();
                 html.push_str(format!(
                     "<li><a href={}>{}</a></li>",
-                    filename,
                     sub.trim_start_matches(&root)
                         .replace("\\\\", "/")
                         .replace("\\", "/")
                         .as_str()
+                        .trim_start_matches("/"),
+                    filename,
                 ).as_str())
             }
             html.push_str("</ul>");
