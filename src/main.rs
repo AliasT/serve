@@ -44,9 +44,6 @@ where
         let path = req.url().path();
         let path = path.trim_start_matches(&self.prefix);
         let path = path.trim_start_matches('/');
-        let mut file_path = self.dir.clone();
-
-        println!("{:?}", self.dir.clone().as_path());
 
         // 迭代产生的元素是路径中的segment
         // 这里处理当前或者父级路径的方法值得学习
@@ -60,10 +57,19 @@ where
         //     }
         // }
 
-        let file_path = AsyncPathBuf::from(file_path);
-        if !file_path.starts_with(&self.dir) {
-            return Ok(Response::new(StatusCode::Forbidden));
-        }
+        let mut file_path = AsyncPathBuf::new();
+        file_path.push(&self.dir);
+        file_path.push(path);
+
+        println!("{:?}", file_path);
+        let file_path = file_path.canonicalize().await?;
+
+        println!("2{:?}", file_path);
+
+        // if !file_path.starts_with(&self.dir) {
+        //     return Ok(Response::new(StatusCode::Forbidden));
+        // }
+
         if !file_path.exists().await {
             return Ok(Response::new(StatusCode::NotFound));
         }
@@ -114,8 +120,7 @@ trait TideExt {
 
 impl<'a, State: Clone + Send + Sync + 'static> TideExt for tide::Route<'a, State> {
     fn serve_dir2(&mut self, dir: impl AsRef<Path> + std::fmt::Debug) -> std::io::Result<()> {
-        println!("first time: {:?}", dir);
-        let dir = dir.as_ref().to_owned().canonicalize()?;
+        let dir = dir.as_ref().to_owned();
         let prefix = self.path().to_string();
         self.at("*").get(ServeDir::new(prefix, dir));
         Ok(())
