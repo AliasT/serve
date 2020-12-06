@@ -10,7 +10,7 @@ use tide::{Body, Request, Response, Result, StatusCode};
 #[clap(version = "1.0", author = "ryan chai . <chai_xb@163.com>")]
 struct Opts {
     #[clap(default_value = ".")]
-    input: String,
+    directory: String,
 
     #[clap(short = 'p', long, default_value = "8080")]
     port: i32,
@@ -120,8 +120,8 @@ async fn main() -> tide::Result<()> {
     let mut app = tide::new();
 
     // WTF ?
-    app.at("*").serve_dir2(&opts.input)?;
-    app.at("/").serve_dir2(&opts.input)?;
+    app.at("*").serve_dir2(&opts.directory)?;
+    app.at("/").serve_dir2(&opts.directory)?;
 
     let mut listener = app.bind(format!("127.0.0.1:{}", opts.port)).await?;
     for info in listener.info().iter() {
