@@ -3,6 +3,7 @@ use async_std::path::PathBuf as AsyncPathBuf;
 use async_std::prelude::*;
 use clap::Clap;
 use std::{ffi::OsStr, path::{Path, PathBuf}};
+use tide::prelude::*;
 use tide::{Body, Request, Response, Result, StatusCode};
 
 #[derive(Clap)]
@@ -122,7 +123,11 @@ async fn main() -> tide::Result<()> {
     app.at("*").serve_dir2(&opts.input)?;
     app.at("/").serve_dir2(&opts.input)?;
 
-    app.listen(format!("127.0.0.1:{}", opts.port)).await?;
+    let mut listener = app.bind(format!("127.0.0.1:{}", opts.port)).await?;
+    for info in listener.info().iter() {
+        println!("Server listening on {}", info);
+    }
+    listener.accept().await?;
 
     Ok(())
 }

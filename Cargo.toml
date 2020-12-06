@@ -8,7 +8,7 @@ edition = "2018"
 
 [dependencies]
 clap = "3.0.0-beta.2"
-tide = "0.14.0"
+tide = "0.15.0"
 async-std = { version = "1.6.0", features = ["attributes"] }
 async-trait = "0.1.42"
 
