@@ -1,8 +1,10 @@
-
 use async_std::path::PathBuf as AsyncPathBuf;
 use async_std::prelude::*;
 use clap::Clap;
-use std::{ffi::OsStr, path::{Path, PathBuf}};
+use std::{
+    ffi::OsStr,
+    path::{Path, PathBuf},
+};
 use tide::prelude::*;
 use tide::{Body, Request, Response, Result, StatusCode};
 
@@ -14,7 +16,6 @@ struct Opts {
 
     #[clap(short = 'p', long, default_value = "8080")]
     port: i32,
-
     // #[clap(short, long, parse(from_occurrences))]
     // verbose: i32,
 }
@@ -63,7 +64,6 @@ where
             return Ok(Response::new(StatusCode::NotFound));
         }
 
-
         // 判断请求地址属于普通文件还是文件夹
         if file_path.is_file().await {
             let body = Body::from_file(&file_path).await?;
@@ -82,14 +82,19 @@ where
                 // temporary value is freed at the end of this statement
                 let ref filename = entry.file_name();
                 let paren = Path::new(root).join(Path::new(filename));
-                html.push_str(format!(
-                    "<li><a href={}>{}</a></li>",
-                    paren.to_str().unwrap_or_default()
-                    .replace("\\\\", "/")
-                    .replace("\\", "/")
-                    .trim_start_matches("/"),
-                    filename.to_string_lossy(),
-                ).as_str())
+                html.push_str(
+                    format!(
+                        "<li><a href={}>{}</a></li>",
+                        paren
+                            .to_str()
+                            .unwrap_or_default()
+                            .replace("\\\\", "/")
+                            .replace("\\", "/")
+                            .trim_start_matches("/"),
+                        filename.to_string_lossy(),
+                    )
+                    .as_str(),
+                )
             }
             html.push_str("</ul>");
             let mut res = Response::new(StatusCode::Ok);
