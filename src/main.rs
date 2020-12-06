@@ -1,25 +1,21 @@
-// (Full example with detailed comments in examples/01d_quick_example.rs)
-//
-// This example demonstrates clap's full 'custom derive' style of creating arguments which is the
-// simplest method of use, but sacrifices some flexibility.
+
 use async_std::path::PathBuf as AsyncPathBuf;
 use async_std::prelude::*;
 use clap::Clap;
-use std::ffi::OsStr;
-use std::path::{Path, PathBuf};
+use std::{ffi::OsStr, path::{Path, PathBuf}};
 use tide::{Body, Request, Response, Result, StatusCode};
-use std::cell::Ref;
 
-/// This doc string acts as a help message when the user runs '--help'
-/// as do all doc strings on fields
 #[derive(Clap)]
 #[clap(version = "1.0", author = "ryan chai . <chai_xb@163.com>")]
 struct Opts {
-    /// Some input. Because this isn't an Option<T> it's required to be used
+    #[clap(default_value = ".")]
     input: String,
-    /// A level of verbosity, and can be used multiple times
-    #[clap(short, long, parse(from_occurrences))]
-    verbose: i32,
+
+    #[clap(short = 'p', long, default_value = "8080")]
+    port: i32,
+
+    // #[clap(short, long, parse(from_occurrences))]
+    // verbose: i32,
 }
 
 pub struct ServeDir {
@@ -45,30 +41,27 @@ where
         let path = path.trim_start_matches(&self.prefix);
         let path = path.trim_start_matches('/');
 
-        // 迭代产生的元素是路径中的segment
-        // 这里处理当前或者父级路径的方法值得学习
-        // for p in Path::new(path) {
-        //     if p == OsStr::new(".") {
-        //         continue;
-        //     } else if p == OsStr::new("..") {
-        //         file_path.pop();
-        //     } else {
-        //         file_path.push(&p);
-        //     }
-        // }
-
         let mut file_path = AsyncPathBuf::new();
         file_path.push(&self.dir);
-        file_path.push(path);
+        let root = Path::new(path).file_name().unwrap_or_default();
 
-        println!("{:?}", file_path);
+        // 迭代产生的元素是路径中的segment
+        // 这里处理当前或者父级路径的方法值得学习
+        for p in Path::new(path) {
+            if p == OsStr::new(".") {
+                continue;
+            } else if p == OsStr::new("..") {
+                file_path.pop();
+            } else {
+                file_path.push(&p);
+            }
+        }
+
         let file_path = file_path.canonicalize().await?;
-
-        println!("2{:?}", file_path);
-
         if !file_path.exists().await {
             return Ok(Response::new(StatusCode::NotFound));
         }
+
 
         // 判断请求地址属于普通文件还是文件夹
         if file_path.is_file().await {
@@ -80,25 +73,21 @@ where
             let mut html = String::from("");
             html.push_str("<ul>");
             let mut entries = (file_path.read_dir().await?);
-            let root = file_path.as_path().parent().unwrap().to_str().unwrap_or_default();
 
             // OMG !
             // Some 和 Ok 可以嵌套
             // 使用Ref来Borrow，而不是Move
             while let Some(Ok(ref entry)) = entries.next().await {
                 // temporary value is freed at the end of this statement
-                let sub = entry.path();
-                let sub = sub.to_str().unwrap_or_default();
-                let filename = entry.file_name();
-                let filename = filename.to_string_lossy();
+                let ref filename = entry.file_name();
+                let paren = Path::new(root).join(Path::new(filename));
                 html.push_str(format!(
                     "<li><a href={}>{}</a></li>",
-                    sub.trim_start_matches(&root)
-                        .replace("\\\\", "/")
-                        .replace("\\", "/")
-                        .as_str()
-                        .trim_start_matches("/"),
-                    filename,
+                    paren.to_str().unwrap_or_default()
+                    .replace("\\\\", "/")
+                    .replace("\\", "/")
+                    .trim_start_matches("/"),
+                    filename.to_string_lossy(),
                 ).as_str())
             }
             html.push_str("</ul>");
@@ -119,7 +108,7 @@ impl<'a, State: Clone + Send + Sync + 'static> TideExt for tide::Route<'a, State
     fn serve_dir2(&mut self, dir: impl AsRef<Path> + std::fmt::Debug) -> std::io::Result<()> {
         let dir = dir.as_ref().to_owned();
         let prefix = self.path().to_string();
-        self.at("*").get(ServeDir::new(prefix, dir));
+        self.get(ServeDir::new(prefix, dir));
         Ok(())
     }
 }
@@ -129,9 +118,11 @@ async fn main() -> tide::Result<()> {
     let opts: Opts = Opts::parse();
     let mut app = tide::new();
 
-    app.at("/").serve_dir2(opts.input)?;
+    // WTF ?
+    app.at("*").serve_dir2(&opts.input)?;
+    app.at("/").serve_dir2(&opts.input)?;
 
-    app.listen("127.0.0.1:8000").await?;
+    app.listen(format!("127.0.0.1:{}", opts.port)).await?;
 
     Ok(())
 }
